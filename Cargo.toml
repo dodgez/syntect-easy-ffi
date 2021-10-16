@@ -1,0 +1,12 @@
+[package]
+name = "syntect-easy-ffi"
+version = "0.1.0"
+authors = ["dodgez <zacharysdodge@gmail.com>"]
+edition = "2018"
+
+[dependencies.syntect]
+features = ["parsing"]
+version = "4.6.0"
+
+[lib]
+crate-type = ["cdylib"]
