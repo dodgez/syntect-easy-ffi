@@ -1,6 +1,7 @@
 #![feature(vec_into_raw_parts)]
 
 use std::ffi::{CStr, CString};
+use std::path::Path;
 use syntect::{
     easy::HighlightLines, highlighting::ThemeSet, parsing::SyntaxSet, util::LinesWithEndings,
 };
@@ -34,17 +35,43 @@ pub struct Highlighted {
 
 #[no_mangle]
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
-pub extern "C" fn highlight_string(content: *const i8, file_ext: *const i8) -> Highlighted {
+pub extern "C" fn load_default_syntaxes(syntaxes_folder: *const i8) -> *mut SyntaxSet {
+    let syntaxes_folder = unsafe { CStr::from_ptr(syntaxes_folder) }.to_str().unwrap();
+    let mut sb = SyntaxSet::load_defaults_newlines().into_builder();
+    if Path::new(syntaxes_folder).exists() {
+        sb.add_from_folder(syntaxes_folder, true).unwrap();
+    }
+    let ss = sb.build();
+    Box::into_raw(Box::new(ss))
+}
+
+#[no_mangle]
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+pub extern "C" fn load_default_themes(themes_folder: *const i8) -> *mut ThemeSet {
+    let themes_folder = unsafe { CStr::from_ptr(themes_folder) }.to_str().unwrap();
+    let mut themes = ThemeSet::load_defaults();
+    if Path::new(themes_folder).exists() {
+        themes.add_from_folder(themes_folder).unwrap();
+    }
+    Box::into_raw(Box::new(themes))
+}
+
+#[no_mangle]
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+pub extern "C" fn highlight_string(
+    content: *const i8,
+    file_ext: *const i8,
+    syntaxes: *const SyntaxSet,
+    themes: *const ThemeSet,
+) -> Highlighted {
     let content = unsafe { CStr::from_ptr(content) }.to_str().unwrap();
     let file_ext = unsafe { CStr::from_ptr(file_ext) }.to_str().unwrap();
-    let mut sb = SyntaxSet::load_defaults_newlines().into_builder();
-    sb.add_from_folder(".", true).unwrap();
-    let ss = sb.build();
+    let ss: &SyntaxSet = unsafe { &*syntaxes };
     let syntax = ss
         .find_syntax_by_token(file_ext)
         .unwrap_or_else(|| ss.find_syntax_plain_text());
-    let themes: ThemeSet = ThemeSet::load_defaults();
-    let mut h: HighlightLines = HighlightLines::new(syntax, &themes.themes["base16-ocean.dark"]);
+    let themes: &ThemeSet = unsafe { &*themes };
+    let mut h: HighlightLines = HighlightLines::new(syntax, &themes.themes["Solarized (light)"]);
     let mut highlighted: Vec<StyledString> = Vec::new();
     for line in LinesWithEndings::from(content) {
         let mut styled_strings: Vec<StyledString> = h
