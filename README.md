@@ -1,2 +1,2 @@
 # syntect-easy-ffi
-C Bindings for syntect easy module
+C Bindings for syntect's easy module
